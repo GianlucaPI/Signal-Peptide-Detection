@@ -1550,12 +1550,15 @@ class MainController:
             print("C) Create Files with Representative - NOT DONE")
 
         if self.show_menu != False:
+            self.choices = ["A", "B", "C", "D", "E", "T", "F", "G", "H", "Q"]
             print("D) Plot Data and Distributions of Protein Lengths")
             print("E) Plot Data and Distributions of Protein SP Lengths")
             print("F) Plot Amino Acid Frequencies against Uniprot Distribution")
             print("G) Plot Kingdom Pie Chart")
             print("H) Create Sequence Logo")
             print("Q) QUIT\n")
+        else: 
+            self.choices = ["A","B","C"]
 
     def handle_choice_a(self):
         """
