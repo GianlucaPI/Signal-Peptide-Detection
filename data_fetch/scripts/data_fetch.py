@@ -1794,9 +1794,7 @@ if __name__ == "__main__":
     # plt.savefig('amino_acid_frequencies_comparison.png', dpi=300, bbox_inches='tight') before plt.show()
 
     # Define the base path where all data files are located
-    base_path_url = "/Users/gianlucapiccolo/Desktop/lab2_2024/script/files"
-    #    base_path_url = "/Users/gianlucapiccolo/Desktop/lab2_2024/script/files/datasets"
-
+    base_path_url = os.path.join(os.path.dirname(__file__), "files")    #    base_path_url = "/Users/gianlucapiccolo/Desktop/lab2_2024/script/files/datasets"
 
     # Initialize the main controller
     controller = MainController(base_path_url=base_path_url)
