@@ -1804,7 +1804,19 @@ if __name__ == "__main__":
     # plt.savefig('amino_acid_frequencies_comparison.png', dpi=300, bbox_inches='tight') before plt.show()
 
     # Define the base path where all data files are located
-    base_path_url = os.path.join(os.path.dirname(__file__), "files")    #    base_path_url = "/Users/gianlucapiccolo/Desktop/lab2_2024/script/files/datasets"
+    base_path_url = f"../files"    #    base_path_url = "/Users/gianlucapiccolo/Desktop/lab2_2024/script/files/datasets"
+
+    import os
+
+    # This will give you the path to the directory just above the current directory
+    parent_dir_path = os.path.join(os.path.dirname(__file__), os.pardir)
+
+    # If you want to navigate into the "files" directory in the parent directory:
+    base_path_url = os.path.join(parent_dir_path, "files")
+
+    # You can also normalize the path using os.path.abspath to get the full path:
+    parent_dir_path = os.path.abspath(parent_dir_path)
+    base_path_url = os.path.abspath(base_path_url)
 
     # Initialize the main controller
     controller = MainController(base_path_url=base_path_url)
