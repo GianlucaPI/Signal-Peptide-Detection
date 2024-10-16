@@ -1803,11 +1803,6 @@ if __name__ == "__main__":
     #save images
     # plt.savefig('amino_acid_frequencies_comparison.png', dpi=300, bbox_inches='tight') before plt.show()
 
-    # Define the base path where all data files are located
-    base_path_url = f"../files"    #    base_path_url = "/Users/gianlucapiccolo/Desktop/lab2_2024/script/files/datasets"
-
-    import os
-
     # This will give you the path to the directory just above the current directory
     parent_dir_path = os.path.join(os.path.dirname(__file__), os.pardir)
 
