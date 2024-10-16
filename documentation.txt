@@ -1,0 +1,222 @@
+Classes and Their Descriptions
+
+1. Data Fetching and Processing
+
+UniProtEntryProcessor (ABC)
+
+An abstract base class that defines the interface for processing UniProt entries.
+
+	•	Methods:
+	•	filter_entry(entry: dict) -> bool: Determines whether a UniProt entry should be included based on custom criteria.
+	•	extract_fields(entry: dict) -> tuple: Extracts relevant fields from a UniProt entry for further processing.
+
+PositiveUniProtEntryProcessor(UniProtEntryProcessor)
+
+Processes positive UniProt entries (proteins with signal peptides).
+
+	•	Filter Criteria:
+	•	Entries must have a Signal feature with an end position greater than 13.
+	•	The signal peptide must not be marked as ‘not cleaved’.
+	•	Extracted Fields:
+	•	Primary Accession
+	•	Organism’s Scientific Name
+	•	Lineage (Metazoa, Fungi, Viridiplantae, or Others)
+	•	Sequence Length
+	•	Cleavage Position
+	•	Sequence
+
+NegativeUniProtEntryProcessor(UniProtEntryProcessor)
+
+Processes negative UniProt entries (proteins without signal peptides but with transmembrane regions).
+
+	•	Filter Criteria:
+	•	Entries must have a Transmembrane feature.
+	•	Extracted Fields:
+	•	Primary Accession
+	•	Organism’s Scientific Name
+	•	Lineage
+	•	Sequence Length
+	•	Transmembrane Boolean
+	•	Sequence
+
+UniProtDatasetFetcher
+
+Fetches datasets from UniProt using provided base URLs and entry processors.
+
+	•	Initialization Parameters:
+	•	base_url: UniProt API URL for querying entries.
+	•	entry_processor: An instance of UniProtEntryProcessor.
+	•	batch_size: Number of entries to fetch per request (default is 500).
+	•	Methods:
+	•	_create_session(): Creates a requests session with retry strategy.
+	•	_get_next_link(headers: dict) -> str: Parses headers to find the next page URL.
+	•	_get_batch(batch_url: str): Generator yielding batches of entries.
+	•	fetch_dataset(): Fetches and yields entries that pass the filter criteria.
+
+2. File Handling
+
+UniProtFileCreator
+
+Creates TSV and FASTA files from processed UniProt entries.
+
+	•	Initialization Parameters:
+	•	output_file_name: Base name for the output files.
+	•	Methods:
+	•	create_tsv_file(data_generator, entry_processor): Writes TSV and FASTA files from filtered entries.
+
+RepresentativeFileParser
+
+Parses representative files to create DataFrames and splits datasets into training and benchmarking sets.
+
+	•	Initialization Parameters:
+	•	input_fasta: Path to the input FASTA file containing representative sequences.
+	•	output_tsv: Path to the output TSV file for representative data.
+	•	original_tsv: Path to the original TSV file containing all entries.
+	•	split_tsv: Path to the split TSV file for training and benchmarking sets.
+	•	Methods:
+	•	get_unique_element_information(): Extracts unique accession IDs from the input FASTA file.
+	•	print_representative(): Writes representative entries to the output TSV file based on unique accession IDs.
+	•	create_split_tsv() -> pd.DataFrame: Splits the data into training (80%) and benchmarking (20%) sets and assigns folds.
+	•	get_dataframe() -> pd.DataFrame: Returns the created DataFrame.
+
+3. Clustering
+
+ClusterManager
+
+Manages clustering of sequences using MMSeqs2.
+
+	•	Initialization Parameters:
+	•	base_path: Base directory path where data files are located.
+	•	Methods:
+	•	run_mmseqs_cluster(input_fasta, cluster_output, min_seq_id=0.3, coverage=0.4, cluster_mode=1): Runs MMSeqs2 clustering with specified parameters.
+
+4. Data Analysis
+
+SequenceLengthAnalyzer
+
+Analyzes the distribution of sequence lengths between positive and negative datasets.
+
+	•	Initialization Parameters:
+	•	positive_df: DataFrame containing positive sequences.
+	•	negative_df: DataFrame containing negative sequences.
+	•	set_type: Dataset type (‘T’ for Training, ‘B’ for Benchmarking).
+	•	column_name: Column name containing sequence lengths.
+	•	max_seq_length: Maximum sequence length to consider for analysis (default is 2000).
+	•	Methods:
+	•	filter_data(): Filters the sequence lengths based on the dataset type.
+	•	prepare_plot_data(): Prepares data for plotting.
+	•	create_bar_plot(): Generates a bar plot of relative frequencies.
+	•	create_density_plot(): Generates a density plot of sequence lengths.
+	•	create_box_plot(): Generates a box plot excluding outliers.
+	•	print_statistics(): Prints statistical information.
+	•	analyze(): Performs the complete analysis.
+
+SignalPeptideLengthAnalyzer
+
+Analyzes the distribution of Signal Peptide (SP) lengths in positive datasets.
+
+	•	Initialization Parameters:
+	•	Similar to SequenceLengthAnalyzer but tailored for SP lengths.
+	•	Methods:
+	•	Similar to SequenceLengthAnalyzer.
+
+AminoAcidFrequencyAnalyzer
+
+Analyzes the frequency of amino acids in the training set.
+
+	•	Initialization Parameters:
+	•	split_tsv: Path to the split TSV file.
+	•	fasta_file: Path to the FASTA file.
+	•	amino_acids: List of amino acids to consider.
+	•	set_type: Dataset type (‘T’ for Training).
+	•	max_seq_length: Maximum sequence length to consider for analysis.
+	•	Methods:
+	•	load_and_filter_data(): Loads the split TSV file and filters for the specified set type.
+	•	process_fasta(): Parses the FASTA file and slices sequences based on cleavage positions.
+	•	calculate_frequencies(): Counts amino acids and calculates frequencies.
+	•	calculate_average_frequencies(): Calculates average frequencies across all sequences.
+	•	generate_frequencies_dataframe(): Combines steps to generate the frequencies DataFrame.
+	•	analyze(): Performs the analysis and generates plots comparing calculated frequencies with SwissProt frequencies.
+
+KingdomDistributionAnalyzer
+
+Analyzes the distribution of kingdoms in the dataset and generates a pie chart.
+
+	•	Initialization Parameters:
+	•	positive_tsv_file_path: Path to the positive TSV file.
+	•	negative_tsv_file_path: Path to the negative TSV file.
+	•	Methods:
+	•	load_data(): Loads the TSV files into a DataFrame.
+	•	analyze_kingdom_distribution(): Analyzes the kingdom distribution.
+	•	create_pie_chart(title, save_path): Generates a pie chart.
+	•	run_analysis(save_path=None): Runs the complete analysis pipeline.
+
+MakeSequenceLogo
+
+Prepares data for creating a sequence logo centered around the cleavage site.
+
+	•	Initialization Parameters:
+	•	base_path_url: Base directory path.
+	•	positive_tsv_file_path: Path to the positive TSV file.
+	•	fasta_file_path: Path to the positive FASTA file.
+	•	Methods:
+	•	load_data(): Loads the positive dataset TSV file.
+	•	load_fasta_sequences(): Parses the FASTA file.
+	•	extract_aligned_windows(window_size, output_file): Extracts sequences for sequence logo generation.
+
+5. Main Controller
+
+MainController
+
+Provides a menu-driven interface for users to interact with the script.
+
+	•	Initialization Parameters:
+	•	base_path_url: Base directory path where data files are located.
+	•	Methods:
+	•	display_menu(): Displays the menu options and their status.
+	•	handle_choice_a() to handle_choice_h(): Methods corresponding to each menu option.
+	•	handle_choice_q(): Exits the program.
+	•	run(): Runs the main loop.
+
+Workflow Steps
+
+	1.	Fetch Data and Process (Option A):
+	•	Fetch positive and negative datasets from UniProt using RESTful APIs.
+	•	Process entries using the entry processors.
+	•	Create initial TSV and FASTA files.
+	2.	Cluster with MMSeqs2 (Option B):
+	•	Perform sequence clustering to reduce redundancy.
+	•	Generate representative sequences.
+	3.	Create Files with Representative Sequences (Option C):
+	•	Extract representative sequences from clustering results.
+	•	Split datasets into training and benchmarking sets with cross-validation folds.
+	4.	Plot Data and Distributions (Options D & E):
+	•	Analyze and plot sequence length distributions.
+	•	Analyze and plot signal peptide length distributions.
+	5.	Plot Amino Acid Frequencies (Option F):
+	•	Analyze amino acid frequencies in the training set.
+	•	Compare with frequencies from the SwissProt database.
+	6.	Plot Kingdom Distribution (Option G):
+	•	Analyze the distribution of sequences across different kingdoms.
+	•	Generate a pie chart visualizing the distribution.
+	7.	Create Sequence Logo (Option H):
+	•	Extract aligned sequences centered around the cleavage site.
+	•	Prepare data for sequence logo generation using external tools.
+
+Notes
+
+	•	Data Files:
+	•	Ensure that the base_path_url provided to the MainController matches the location where you want to store data files.
+	•	The script generates and expects certain files in specific locations based on this path.
+	•	External Tools:
+	•	MMSeqs2 must be installed separately and be accessible from the command line.
+	•	For sequence logo generation, additional tools like WebLogo may be required (not included in the script).
+	•	Plotting:
+	•	Plots are generated using Matplotlib and Seaborn.
+	•	Ensure your environment supports displaying or saving plots (e.g., running in Jupyter Notebook or a Python script that can display GUI).
+	•	Error Handling:
+	•	The script includes basic error handling, but it’s advisable to ensure that all prerequisites are met.
+	•	Check for the existence of files and directories before running certain options.
+	•	Customization:
+	•	Parameters such as sequence identity thresholds, coverage, and clustering modes can be adjusted in the ClusterManager.
+	•	You can modify the filtering criteria in the entry processors to suit different requirements.
