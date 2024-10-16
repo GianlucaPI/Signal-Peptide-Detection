@@ -1505,6 +1505,9 @@ class MainController:
         :param base_path_url: Base directory path where data files are located.
         """
         self.base_path_url = base_path_url
+
+        self.show_menu = True
+
         self.positive_file_parser = RepresentativeFileParser(
             input_fasta=f"{base_path_url}/cluster-results_pos_rep_seq.fasta",
             output_tsv=f"{base_path_url}/positive_representative.tsv",
@@ -1529,26 +1532,30 @@ class MainController:
         if os.path.isfile(f"{self.base_path_url}/positives.fasta") and os.path.isfile(f"{self.base_path_url}/positives.tsv"):
             print("A) Fetch Data and Process - DONE")
         else:
+            self.show_menu = False
             print("A) Fetch Data and Process - NOT DONE")
 
         if os.path.isfile(f"{self.base_path_url}/cluster-results_pos_rep_seq.fasta") and \
            os.path.isfile(f"{self.base_path_url}/cluster-results_neg_rep_seq.fasta"):
             print("B) Cluster with MMSeqs - DONE")
         else:
+            self.show_menu = False
             print("B) Cluster with MMSeqs - NOT DONE")
 
         if os.path.isfile(f"{self.base_path_url}/positive_representative.tsv") and \
            os.path.isfile(f"{self.base_path_url}/negative_representative.tsv"):
             print("C) Create Files with Representative - DONE")
         else:
+            self.show_menu = False
             print("C) Create Files with Representative - NOT DONE")
 
-        print("D) Plot Data and Distributions of Protein Lengths")
-        print("E) Plot Data and Distributions of Protein SP Lengths")
-        print("F) Plot Amino Acid Frequencies against Uniprot Distribution")
-        print("G) Plot Kingdom Pie Chart")
-        print("H) Create Sequence Logo")
-        print("Q) QUIT\n")
+        if self.show_menu != False:
+            print("D) Plot Data and Distributions of Protein Lengths")
+            print("E) Plot Data and Distributions of Protein SP Lengths")
+            print("F) Plot Amino Acid Frequencies against Uniprot Distribution")
+            print("G) Plot Kingdom Pie Chart")
+            print("H) Create Sequence Logo")
+            print("Q) QUIT\n")
 
     def handle_choice_a(self):
         """
