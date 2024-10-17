@@ -1557,7 +1557,7 @@ class MainController:
             print("E) Plot Data and Distributions of Protein SP Lengths")
             print("F) Plot Amino Acid Frequencies against Uniprot Distribution")
             print("G) Plot Kingdom Pie Chart")
-            print("H) Create Sequence Logo")
+            print("H) Create Fasta for Sequence Logo")
             print("Q) QUIT\n")
         else: 
             self.choices = ["A","B","C"]
