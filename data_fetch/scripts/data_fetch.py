@@ -1440,13 +1440,15 @@ class MakeSequenceLogo:
         except FileNotFoundError:
             print(f"FASTA file not found at path: {self.fasta_file_path}")
     
-    def extract_aligned_windows(self, window_size=15, output_file='sequence_for_logo.fasta'):
+    def extract_aligned_windows(self, window_size=15, output_file='general_sequence_for_logo.fasta'):
     
         # Initialize the list to store aligned sequences
         self.aligned_sequences = []
+
+        path_to_output = os.path.join(self.base_path_url, output_file)
         
         # Open the output file in write mode
-        with open(output_file, 'w') as fasta_file:
+        with open(path_to_output, 'w') as fasta_file:
             # Iterate over each row in the dataframe
             for idx, row in self.df.iterrows():
                 seq_id = row['ID']
