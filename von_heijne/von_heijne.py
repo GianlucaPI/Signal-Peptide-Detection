@@ -32,7 +32,17 @@ SWISSPROT_FREQ = {
 SWISSPROT_FREQ_NORMALIZED = {k: round(v / 100, 3) for k, v in SWISSPROT_FREQ.items()}
 
 # Base directory path
-BASE_PATH = "/Users/gianlucapiccolo/Desktop/lab2_2024/script/files/"
+#BASE_PATH = "/Users/gianlucapiccolo/Desktop/lab2_2024/script/files/"
+
+# This will give you the path to the directory just above the current directory
+parent_dir_path = os.path.join(os.path.dirname(__file__), os.pardir)
+
+    # If you want to navigate into the "files" directory in the parent directory:
+base_path_url = os.path.join(parent_dir_path, "data_fetch/files/")
+
+    # You can also normalize the path using os.path.abspath to get the full path:
+#parent_dir_path = os.path.abspath(parent_dir_path)
+BASE_PATH = os.path.abspath(base_path_url)
 
 def filter_dataframe_by_dict_keys(df, dict_keys, column_name="ID"):
     """
@@ -575,7 +585,7 @@ def main():
     cluster_fasta_path = os.path.join(BASE_PATH, "cluster-results_pos_rep_seq.fasta")
     
     # Definisci il percorso per il nuovo file FASTA
-    output_fasta_path = os.path.join(BASE_PATH, "false_negatives_sequences_per_logo.fasta")
+    output_fasta_path = os.path.join(BASE_PATH, "von_heijne_false_negatives_sequences_per_logo.fasta")
     
     # Chiama la funzione per estrarre e salvare le sequenze
     extract_and_save_sequences(
