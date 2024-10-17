@@ -1,4 +1,4 @@
-DATA FETCH ANALYZER
+DATA FETCH CODE ANALYZER
 
 Classes and Their Descriptions
 
@@ -222,3 +222,105 @@ Notes
 	•	Customization:
 	•	Parameters such as sequence identity thresholds, coverage, and clustering modes can be adjusted in the ClusterManager.
 	•	You can modify the filtering criteria in the entry processors to suit different requirements.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+VON HEIJNE CODE ANALYZER
+
+Signal Peptide Detection Using Von Heijne Method
+
+This Python script implements a signal peptide detection algorithm using the von Heijne method with background modeling based on SwissProt amino acid frequencies. 
+It employs cross-validation to assess the performance of a position-specific scoring matrix (PSSM) built from the training data. 
+The method evaluates the ability to classify signal peptides based on cleavage sites. Here’s a breakdown of the code structure:
+
+1. Constants and Global Variables
+
+	•	AMINO_ACIDS: List of standard amino acids used in proteins.
+	•	AMINO_ACIDS_INDEX: Dictionary mapping each amino acid to a unique index.
+	•	SWISSPROT_FREQ: SwissProt database amino acid frequency data (used for background modeling).
+	•	SWISSPROT_FREQ_NORMALIZED: Normalized version of SWISSPROT_FREQ where frequencies are represented as percentages.
+
+2. Data Loading Functions
+
+	•	load_sequences(fasta_file): Reads a FASTA file and loads sequences into a dictionary (ID to sequence mapping).
+	•	load_data(base_path): Main function to load both the positive and negative sequences (from FASTA files) and TSV metadata for training/benchmark sets. It splits data into:
+	•	Training positive and negative sets.
+	•	Benchmark positive and negative sets.
+	•	Combines positive and negative sequences into Training_df and Benchmark_df.
+
+3. Data Filtering
+
+	•	filter_dataframe_by_dict_keys(df, dict_keys, column_name="ID"): Filters the DataFrame rows by checking if the sequence IDs exist in a given dictionary (from the sequences).
+
+4. Cross-Validation Setup
+
+	•	get_split(df, iteration, n_folds=5): Splits the data into test, validation, and training sets for each iteration of cross-validation. 
+		It handles the fold assignments for the test, validation, and training folds dynamically based on the iteration number.
+
+5. Sequence Extraction
+
+	•	extract_training_sequences(training_df, sequences_dict_p): Extracts sequences from the training set by slicing around the cleavage site (from -13 to +2 positions).
+	•	extract_whole_seq(df, sequences_dict_n, sequences_dict_p): Extracts whole sequences from the dataset (both positive and negative) to be used for scoring.
+
+6. Sequence Encoding and Scoring
+
+	•	one_hot_encode(sequence, amminoacidi_index, seq_length=15, num_amminoacidi=20): One-hot encodes the sequence for positional scoring, considering each amino acid’s position.
+	•	create_matrix(sequences, amminoacidi_index, swissprot_freq_normalized, seq_length=15, num_amminoacidi=20): Constructs a log-normalized position-specific scoring matrix (PSSM).
+		It uses the occurrence of amino acids at each position and normalizes the score using the background SwissProt frequency.
+
+7. Score Calculation
+
+	•	get_score(matrix, sequences, amminoacidi_index, window_size=15): Calculates the maximum score for each sequence using the generated scoring matrix by sliding a window of length 15 over the sequence.
+	The score for each window is computed by summing the matrix values for the amino acids found at each position.
+
+8. Evaluation Metrics
+
+	•	calculate_mcc(TP, FP, TN, FN): Computes the Matthews Correlation Coefficient (MCC) based on the confusion matrix elements (True Positives, False Positives, True Negatives, False Negatives).
+	•	find_best_threshold(val_predictions, threshold_list): Searches for the optimal threshold that maximizes MCC using the validation set predictions.
+		It evaluates different thresholds, computes the confusion matrix, and selects the threshold with the highest MCC.
+
+9. Performance Testing
+
+	•	test_performance(test_predictions, threshold): Calculates the test performance using MCC based on a chosen threshold. It applies the best threshold found during validation on the test set predictions.
+
+10. Precision-Recall and F1 Score Evaluation
+
+	•	The script also computes the Precision-Recall curve for each cross-validation fold, evaluates F1 scores at different thresholds, and selects an optimal threshold for F1 score maximization.
+	•	Precision-Recall curve is generated using precision_recall_curve.
+	•	F1 score is computed and compared across different thresholds.
+
+11. Plotting and Output
+
+	•	plot_kingdom_distribution(df: pd.DataFrame, title: str): Generates a pie chart for the distribution of sequence kingdoms (if applicable to the dataset).
+	•	extract_and_save_sequences(fasta_path, ids_to_extract, output_fasta): Extracts sequences by their IDs and saves them in a new FASTA file.
+
+12. Main Logic
+
+	•	The script runs a 5-fold cross-validation process where in each fold:
+	1.	Data is split into test, validation, and training sets.
+	2.	Training sequences are used to construct a PSSM.
+	3.	The validation set is used to find the best threshold for classification based on MCC.
+	4.	The test set is evaluated using the best threshold from validation, and performance metrics are calculated (MCC, F1 score, etc.).
+	5.	Precision-Recall curves are plotted for each fold, and results are saved to a CSV file.
+
+13. Results Output
+
+	•	The script logs and stores:
+	•	The best threshold found for each fold based on MCC.
+	•	Test set performance using both the best MCC threshold and the optimal F1 threshold.
+	•	Precision-Recall curves for each cross-validation fold.
+	•	The average best threshold across all folds.
+	•	Saves all results in a CSV file.
+
+14. Key Algorithms and Libraries
+
+	•	BioPython (Bio.SeqIO): Used for reading and manipulating FASTA files.
+	•	Scikit-learn (sklearn.metrics): Used for calculating metrics such as Precision-Recall curves, F1 score, and Matthews Correlation Coefficient.
+	•	NumPy: Efficient handling of arrays and matrix operations.
+	•	Pandas: Data manipulation for TSV files and sequence metadata.
+	•	Matplotlib: Plotting Precision-Recall curves and kingdom distribution charts.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+VON HEIJNE CODE ANALYZER
+
