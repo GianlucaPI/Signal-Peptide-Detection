@@ -50,7 +50,17 @@ AMINO_ACID_CHARGE = {
 }
 
 # Base directory path
-BASE_PATH = "/Users/gianlucapiccolo/Desktop/lab2_2024/script/files/"
+#BASE_PATH = "/Users/gianlucapiccolo/Desktop/lab2_2024/script/files/"
+
+# This will give you the path to the directory just above the current directory
+parent_dir_path = os.path.join(os.path.dirname(__file__), os.pardir)
+
+    # If you want to navigate into the "files" directory in the parent directory:
+base_path_url = os.path.join(parent_dir_path, "data_fetch/files/")
+
+    # You can also normalize the path using os.path.abspath to get the full path:
+#parent_dir_path = os.path.abspath(parent_dir_path)
+BASE_PATH = os.path.abspath(base_path_url) 
 
 def get_sequence_composition(sequence: str) -> list:
     """
