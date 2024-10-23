@@ -214,6 +214,7 @@ def one_hot_encode(sequence, amminoacidi_index, seq_length=15, num_amminoacidi=2
             one_hot_matrix[i, aa_idx] += 1
     return one_hot_matrix
 
+'''
 def create_matrix(sequences, amminoacidi_index, swissprot_freq_normalized, seq_length=15, num_amminoacidi=20):
     """
     Creates a log-normalized matrix based on sequence occurrences and SwissProt frequencies.
@@ -241,6 +242,34 @@ def create_matrix(sequences, amminoacidi_index, swissprot_freq_normalized, seq_l
     matrix_log = np.log(matrix_divided)
     
     return matrix_log
+
+'''
+
+def create_matrix(sequences, amminoacidi_index, swissprot_freq_normalized, seq_length=15, num_amminoacidi=20):
+    # Initialize counts matrix with pseudocounts of 1
+    matrix_amminoacidi = np.ones((seq_length, num_amminoacidi))
+    
+    # Add counts from sequences
+    for sequence in sequences:
+        for i, aa in enumerate(sequence[:seq_length]):
+            if aa in amminoacidi_index:
+                aa_idx = amminoacidi_index[aa]
+                matrix_amminoacidi[i, aa_idx] += 1
+    
+    # Convert to frequencies and normalize by background
+    total_sequences = len(sequences) + 20  # Adding pseudocounts
+    matrix_freq = matrix_amminoacidi / total_sequences
+    
+    # Normalize by background frequencies
+    for aa, idx in amminoacidi_index.items():
+        bg_freq = swissprot_freq_normalized.get(aa, 0.05)  # Default to 0.05 if missing
+        matrix_freq[:, idx] /= bg_freq
+        
+    # Take log
+    matrix_log = np.log(matrix_freq)
+    
+    return matrix_log
+
 
 '''
 def get_score(matrix, sequences, amminoacidi_index, window_size=15):
