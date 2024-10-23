@@ -242,6 +242,7 @@ def create_matrix(sequences, amminoacidi_index, swissprot_freq_normalized, seq_l
     
     return matrix_log
 
+'''
 def get_score(matrix, sequences, amminoacidi_index, window_size=15):
     """
     Computes the maximum score for each sequence based on the scoring matrix.
@@ -262,6 +263,29 @@ def get_score(matrix, sequences, amminoacidi_index, window_size=15):
 
         for i in range(seq_len - window_size + 1):
             window = sequence[i:i + window_size]
+            score = 0
+            for pos, aa in enumerate(window):
+                if aa in amminoacidi_index:
+                    aa_idx = amminoacidi_index[aa]
+                    score += matrix[pos][aa_idx]
+            if score > max_score:
+                max_score = score
+        results.append((max_score, label))
+    return results
+'''
+
+def get_score(matrix, sequences, amminoacidi_index, window_size=15):
+    results = []
+    for sequence, label in sequences:
+        max_score = -math.inf
+        # Only scan first 90 positions, up to position 76
+        max_scan_pos = min(76, len(sequence) - window_size + 1)
+        
+        for i in range(max_scan_pos):
+            window = sequence[i:i + window_size]
+            if len(window) < window_size:  # Skip if window is too short
+                continue
+                
             score = 0
             for pos, aa in enumerate(window):
                 if aa in amminoacidi_index:
