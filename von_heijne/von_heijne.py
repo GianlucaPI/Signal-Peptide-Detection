@@ -246,6 +246,21 @@ def create_matrix(sequences, amminoacidi_index, swissprot_freq_normalized, seq_l
 '''
 
 def create_matrix(sequences, amminoacidi_index, swissprot_freq_normalized, seq_length=15, num_amminoacidi=20):
+    
+    """
+    Creates a log-normalized matrix based on sequence occurrences and SwissProt frequencies.
+
+    Parameters:
+        sequences (list): List of sequences.
+        amminoacidi_index (dict): Dictionary mapping amino acids to indices.
+        swissprot_freq_normalized (dict): Normalized SwissProt frequencies.
+        seq_length (int): Length of the sequences to consider.
+        num_amminoacidi (int): Number of amino acids.
+
+    Returns:
+        np.ndarray: Log-normalized matrix.
+    """
+    
     # Initialize counts matrix with pseudocounts of 1
     matrix_amminoacidi = np.ones((seq_length, num_amminoacidi))
     
