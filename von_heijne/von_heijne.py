@@ -138,7 +138,7 @@ def get_split(df, iteration, n_folds=5):
 
     return test_set, validation_set, training_set
 
-def extract_training_sequences(training_df, sequences_dict_p):
+def extract_training_sequences(training_df, sequences_dict_p, min_length=15):
     """
     Extracts training sequences based on cleavage positions.
 
@@ -150,20 +150,30 @@ def extract_training_sequences(training_df, sequences_dict_p):
         list: List of extracted sequences.
     """
     extracted_sequences = []
+    skipped = 0
     for _, row in training_df.iterrows():
         sequence_id = row['ID']
         cleavage_pos = row['Cleavage_pos']
 
         sequence = sequences_dict_p.get(sequence_id)
         if sequence:
+            if cleavage_pos + 2 > len(sequence):
+                skipped += 1
+                continue
+                
             start_pos = max(0, cleavage_pos - 13)
             end_pos = min(len(sequence), cleavage_pos + 2)
             extracted_sequence = sequence[start_pos:end_pos]
-            extracted_sequences.append(extracted_sequence)
-        else:
-            print(f"Sequence ID {sequence_id} not found in sequences_dict_p.")
+            
+            if len(extracted_sequence) >= min_length:
+                extracted_sequences.append(extracted_sequence)
+            else:
+                skipped += 1
+    
+    if skipped > 0:
+        print(f"Warning: Skipped {skipped} sequences due to insufficient length")
     return extracted_sequences
-
+    
 def extract_whole_seq(df, sequences_dict_n, sequences_dict_p):
     """
     Extracts entire sequences from the dataframe.
@@ -214,37 +224,6 @@ def one_hot_encode(sequence, amminoacidi_index, seq_length=15, num_amminoacidi=2
             one_hot_matrix[i, aa_idx] += 1
     return one_hot_matrix
 
-'''
-def create_matrix(sequences, amminoacidi_index, swissprot_freq_normalized, seq_length=15, num_amminoacidi=20):
-    """
-    Creates a log-normalized matrix based on sequence occurrences and SwissProt frequencies.
-
-    Parameters:
-        sequences (list): List of sequences.
-        amminoacidi_index (dict): Dictionary mapping amino acids to indices.
-        swissprot_freq_normalized (dict): Normalized SwissProt frequencies.
-        seq_length (int): Length of the sequences to consider.
-        num_amminoacidi (int): Number of amino acids.
-
-    Returns:
-        np.ndarray: Log-normalized matrix.
-    """
-    # Initialize matrix with ones to avoid division by zero
-    matrix_amminoacidi = np.ones((seq_length, num_amminoacidi))
-    
-    for sequence in sequences:
-        one_hot = one_hot_encode(sequence, amminoacidi_index, seq_length, num_amminoacidi)
-        matrix_amminoacidi += one_hot
-    
-    matrix_divided = matrix_amminoacidi / (len(sequences) + 20)  # Avoid division by zero
-    for aa, idx in amminoacidi_index.items():
-        matrix_divided[:, idx] /= swissprot_freq_normalized.get(aa, 1)  # Avoid KeyError
-    matrix_log = np.log(matrix_divided)
-    
-    return matrix_log
-
-'''
-
 def create_matrix(sequences, amminoacidi_index, swissprot_freq_normalized, seq_length=15, num_amminoacidi=20):
     
     """
@@ -285,9 +264,8 @@ def create_matrix(sequences, amminoacidi_index, swissprot_freq_normalized, seq_l
     
     return matrix_log
 
-
-'''
 def get_score(matrix, sequences, amminoacidi_index, window_size=15):
+
     """
     Computes the maximum score for each sequence based on the scoring matrix.
 
@@ -300,25 +278,7 @@ def get_score(matrix, sequences, amminoacidi_index, window_size=15):
     Returns:
         list: List of tuples (max_score, label).
     """
-    results = []
-    for sequence, label in sequences:
-        max_score = -math.inf  # Initialize to negative infinity
-        seq_len = len(sequence)
 
-        for i in range(seq_len - window_size + 1):
-            window = sequence[i:i + window_size]
-            score = 0
-            for pos, aa in enumerate(window):
-                if aa in amminoacidi_index:
-                    aa_idx = amminoacidi_index[aa]
-                    score += matrix[pos][aa_idx]
-            if score > max_score:
-                max_score = score
-        results.append((max_score, label))
-    return results
-'''
-
-def get_score(matrix, sequences, amminoacidi_index, window_size=15):
     results = []
     for sequence, label in sequences:
         max_score = -math.inf
@@ -360,6 +320,7 @@ def calculate_mcc(TP, FP, TN, FN):
     return numerator / denominator
 
 def find_best_threshold(val_predictions, threshold_list):
+
     """
     Finds the best threshold based on MCC.
 
@@ -370,16 +331,17 @@ def find_best_threshold(val_predictions, threshold_list):
     Returns:
         tuple: (best_threshold, max_MCC, y_real, y_score)
     """
+
     best_th = 0
     max_MCC = -1
-    y_real = []
-    y_score = []
-
+    
+    # Convert predictions once, outside the loop
+    y_real = [1 if label == "+" else 0 for _, label in val_predictions]
+    y_score = [score for score, _ in val_predictions]
+    
     for th in threshold_list:
         TP = FP = TN = FN = 0
         for score, label in val_predictions:
-            y_score.append(score)
-            y_real.append(1 if label == "+" else 0)
             pred = "+" if score > th else "-"
             if label == "+" and pred == "+":
                 TP += 1
@@ -393,11 +355,9 @@ def find_best_threshold(val_predictions, threshold_list):
         if mcc > max_MCC:
             max_MCC = mcc
             best_th = th
-    # After loop, assign y_real and y_score correctly
-    y_real = [1 if label == "+" else 0 for _, label in val_predictions]
-    y_score = [score for score, _ in val_predictions]
+            
     return best_th, max_MCC, y_real, y_score
-
+    
 def test_performance(test_predictions, threshold):
     """
     Tests performance by computing MCC on test set based on the given threshold.
@@ -470,6 +430,46 @@ def extract_and_save_sequences(fasta_path, ids_to_extract, output_fasta):
     else:
         print("Nessuna sequenza è stata estratta. Verifica gli ID forniti.")
 
+def validate_predictions(predictions, threshold):
+    """
+    Validates predictions and prints detailed statistics.
+    """
+    TP = FP = TN = FN = 0
+    for score, label in predictions:
+        pred = "+" if score > threshold else "-"
+        if label == "+" and pred == "+":
+            TP += 1
+        elif label == "-" and pred == "-":
+            TN += 1
+        elif label == "+" and pred == "-":
+            FN += 1
+        else:
+            FP += 1
+            
+    total = TP + TN + FP + FN
+    accuracy = (TP + TN) / total if total > 0 else 0
+    precision = TP / (TP + FP) if (TP + FP) > 0 else 0
+    recall = TP / (TP + FN) if (TP + FN) > 0 else 0
+    specificity = TN / (TN + FP) if (TN + FP) > 0 else 0
+    mcc = calculate_mcc(TP, FP, TN, FN)
+    
+    print(f"Total predictions: {total}")
+    print(f"True Positives: {TP}")
+    print(f"True Negatives: {TN}")
+    print(f"False Positives: {FP}")
+    print(f"False Negatives: {FN}")
+    print(f"Accuracy: {accuracy:.3f}")
+    print(f"Precision: {precision:.3f}")
+    print(f"Recall: {recall:.3f}")
+    print(f"Specificity: {specificity:.3f}")
+    print(f"MCC: {mcc:.3f}")
+    
+    return {
+        'TP': TP, 'TN': TN, 'FP': FP, 'FN': FN,
+        'accuracy': accuracy, 'precision': precision,
+        'recall': recall, 'specificity': specificity,
+        'mcc': mcc
+    }
 
 def main():
     # Load data
@@ -591,13 +591,16 @@ def main():
     benchmark_sequences = extract_whole_seq(Benchmark_df, sequences_dict_n, sequences_dict_p)
     bench_predictions = get_score(matrix, benchmark_sequences, AMINO_ACIDS_INDEX)
 
-    #print(Benchmark_df)
-    #print(bench_predictions)
+    # Add detailed validation statistics
+    print("\nDetailed Benchmark Set Performance Metrics:")
+    benchmark_stats = validate_predictions(bench_predictions, th_average)
+    
+    # Calcola la soglia media (th_average)
+    pred_labels = ['+' if score > th_average else '-' for score, _ in bench_predictions]
     
     # Calculate MCC on Benchmark set
     final_MCC = test_performance(bench_predictions, th_average)
     print(f"Benchmark set MCC with average threshold {th_average}: {final_MCC}")
-
 
     # === ESTRAGGO FALSE POSITIVE E FALSE NEGATIVE ===
     # Calcola la soglia media (th_average)
