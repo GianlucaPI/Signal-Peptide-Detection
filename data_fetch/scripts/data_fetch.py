@@ -1314,13 +1314,12 @@ class MakeSequenceLogo:
         self.fasta_file_path = base_path_url + fasta_file_path
         self.df = None
         self.sequences = {}
-        self.aligned_sequences = []
+        self.aligned_sequences_training = []
+        self.aligned_sequences_benchmark = []
     
     def load_data(self):
         """Load the TSV files into a pandas DataFrame."""
-        positive_df = pd.read_csv(self.positive_tsv_file_path, sep='\t')
-
-        self.df = positive_df
+        self.df = pd.read_csv(self.positive_tsv_file_path, sep='\t')
         print(f"Data loaded. Shape: {self.df.shape}")
     
     def load_fasta_sequences(self):
@@ -1332,57 +1331,66 @@ class MakeSequenceLogo:
         except FileNotFoundError:
             print(f"FASTA file not found at path: {self.fasta_file_path}")
     
-    def extract_aligned_windows(self, window_size=15, output_file='general_sequence_for_logo.fasta'):
-    
-        # Initialize the list to store aligned sequences
-        self.aligned_sequences = []
+    def extract_aligned_windows(self, window_size=15):
+        """
+        Extract aligned windows for both training and benchmarking sets.
+        
+        :param window_size: Size of the window around cleavage site (default: 15)
+        """
+        # Create output files for both sets
+        training_output = os.path.join(self.base_path_url, 'training_sequence_for_logo.fasta')
+        benchmark_output = os.path.join(self.base_path_url, 'benchmark_sequence_for_logo.fasta')
+        
+        # Process each set separately
+        for set_type, output_file in [('T', training_output), ('B', benchmark_output)]:
+            aligned_sequences = []
+            
+            # Filter DataFrame for current set
+            df_subset = self.df[self.df['set'] == set_type]
+            
+            # Open output file
+            with open(output_file, 'w') as fasta_file:
+                # Process each sequence in the subset
+                for idx, row in df_subset.iterrows():
+                    seq_id = row['ID']
+                    cleavage_pos = row['Cleavage_pos']
+                    sequence = self.sequences.get(seq_id, "")
+                    
+                    if not sequence:
+                        print(f"Sequence for ID {seq_id} not found.")
+                        continue
+                    
+                    # Adjust cleavage position to 0-based index
+                    cleavage_index = cleavage_pos - 1
+                    
+                    # Define window boundaries (-13 to +2 around cleavage site)
+                    start = cleavage_index - 13
+                    end = cleavage_index + 2
+                    
+                    # Handle sequences that are shorter than the window
+                    if start < 0:
+                        start = 0
+                    if end > len(sequence):
+                        end = len(sequence)
+                    
+                    # Extract the window sequence
+                    window_seq = sequence[start:end]
+                    
+                    # Store sequence in appropriate list
+                    if set_type == 'T':
+                        self.aligned_sequences_training.append(window_seq)
+                    else:
+                        self.aligned_sequences_benchmark.append(window_seq)
+                    
+                    # Write to appropriate FASTA file
+                    fasta_file.write(f">{seq_id}\n{window_seq}\n")
+            
+            # Print summary for current set
+            set_name = "Training" if set_type == 'T' else "Benchmark"
+            sequence_count = len(self.aligned_sequences_training if set_type == 'T' else self.aligned_sequences_benchmark)
+            print(f"{set_name} set: Aligned sequences extracted and written to {output_file}")
+            print(f"{set_name} set: Total aligned sequences: {sequence_count}")
 
-        path_to_output = os.path.join(self.base_path_url, output_file)
-        
-        # Open the output file in write mode
-        with open(path_to_output, 'w') as fasta_file:
-            # Iterate over each row in the dataframe
-            for idx, row in self.df.iterrows():
-                seq_id = row['ID']
-                cleavage_pos = row['Cleavage_pos']
-                sequence = self.sequences.get(seq_id, "")
-                
-                if not sequence:
-                    print(f"Sequence for ID {seq_id} not found.")
-                    continue
-                
-                # Adjust cleavage position to 0-based index
-                cleavage_index = cleavage_pos - 1  # Assuming cleavage_pos is 1-based
-                
-                # Define window boundaries
-                start = cleavage_index - 13
-                end = cleavage_index + 2
-                
-                # Handle sequences that are shorter than the window or have cleavage sites near the ends
-                if start < 0:
-                    start = 0
-                if end > len(sequence):
-                    end = len(sequence)
-                
-                # Extract the window sequence
-                window_seq = sequence[start:end]
-                
-                '''
-                # If the extracted window is shorter than expected, pad it with gaps ('-')
-                expected_length = 2 * window_size
-                actual_length = len(window_seq)
-                if actual_length < expected_length:
-                    window_seq = window_seq.ljust(expected_length, '-')
-                '''
-                
-                # Append the window sequence to the list
-                self.aligned_sequences.append(window_seq)
-                
-                # Write the sequence to the FASTA file with a header
-                fasta_file.write(f">{seq_id}\n{window_seq}\n")
-        
-        print(f"Aligned sequences extracted and written to {output_file}. Total aligned sequences: {len(self.aligned_sequences)}")
-        
 # ----------------------------
 # Main Controller
 # ----------------------------
@@ -1665,23 +1673,29 @@ class MainController:
 
         analyzer = KingdomDistributionAnalyzer(positive_tsv_file_path, negative_tsv_file_path)
         analyzer.run_analysis()
-    
+ 
     def handle_choice_h(self):
+        """
+        Creates sequence logos for both training and benchmarking sets.
+        """
         # Initialize the class with file paths
         logo_maker = MakeSequenceLogo(
-            base_path_url = self.base_path_url,
+            base_path_url=self.base_path_url,
             positive_tsv_file_path="/split_pos.tsv",
             fasta_file_path="/positives.fasta"
         )
         
         # Load data
         logo_maker.load_data()
-
         logo_maker.load_fasta_sequences()
 
-        # Create .fasta file
-        logo_maker.extract_aligned_windows()        
+        # Create .fasta files for both sets
+        logo_maker.extract_aligned_windows()
 
+        print("\nTwo FASTA files have been created:")
+        print("1. training_sequence_for_logo.fasta - For creating the training set logo")
+        print("2. benchmark_sequence_for_logo.fasta - For creating the benchmark set logo")
+        print("\nYou can now use these files with your preferred sequence logo creation tool")
     def handle_choice_q(self):
         """
         Handles Choice Q: Quit the program.
