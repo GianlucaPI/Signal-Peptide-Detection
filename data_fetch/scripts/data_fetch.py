@@ -1159,208 +1159,107 @@ class AminoAcidFrequencyAnalyzer:
 
 class SwissProtFrequencyAnalyzer:
     """
-    Analyzes the distribution of SwissProtFrequency and Average Residues.
+    Analyzes amino acid frequencies for both Training and Benchmarking sets against SwissProt frequencies.
     """
 
-    def __init__(self, average_frequencies: pd.DataFrame, swissprot_frequencies: pd.DataFrame, set_type: str, column_name: str,
-                 max_seq_length: int = 2000):
+    def __init__(self, training_frequencies: pd.Series, benchmark_frequencies: pd.Series, swissprot_frequencies: pd.Series):
         """
-        Initializes the SequenceLengthAnalyzer.
-
-        :param positive_df: DataFrame containing positive sequences.
-        :param negative_df: DataFrame containing negative sequences.
-        :param set_type: Dataset type ('T' for Training, 'B' for Benchmarking).
-        :param column_name: Column name containing sequence lengths.
-        :param max_seq_length: Maximum sequence length to consider for analysis.
+        Initializes the SwissProtFrequencyAnalyzer.
+        
+        :param training_frequencies: Series containing calculated amino acid frequencies for training set
+        :param benchmark_frequencies: Series containing calculated amino acid frequencies for benchmark set
+        :param swissprot_frequencies: Series containing SwissProt amino acid frequencies
         """
-        self.average_frequencies = average_frequencies
+        self.training_frequencies = training_frequencies
+        self.benchmark_frequencies = benchmark_frequencies
         self.swissprot_frequencies = swissprot_frequencies
-        self.set_type = set_type
-        self.column_name = column_name
-        self.max_seq_length = max_seq_length
-        self.positive_lengths = None
-        self.negative_lengths = None
-        self.plot_df_filtered = None
-        self.plot_df_melted = None
-
-    def filter_data(self):
-        """
-        Filters the sequence lengths based on the dataset type.
-        """
-        self.positive_lengths = self.positive_df[self.positive_df["set"] == self.set_type][self.column_name]
-        self.negative_lengths = self.negative_df[self.negative_df["set"] == self.set_type][self.column_name]
-        print(f"Filtered data for set '{self.set_type}'.")
-
-    @staticmethod
-    def calc_rel_freq(data: pd.Series, bins: np.ndarray) -> tuple:
-        """
-        Calculates relative frequencies for given data and bins.
-
-        :param data: Series containing numerical data.
-        :param bins: Array of bin edges.
-        :return: Tuple of relative frequencies and bin edges.
-        """
-        hist, bin_edges = np.histogram(data, bins=bins)
-        rel_freq = hist / len(data)
-        return rel_freq, bin_edges
-
-    def prepare_plot_data(self):
-        """
-        Prepares the data required for plotting by calculating relative frequencies.
-        """
-        max_length = max(self.average_frequencies.max(), self.swissprot_frequencies.max())
-        bins = np.arange(0, max_length + 50, 50)
-        pos_freq, pos_edges = self.calc_rel_freq(self.positive_lengths, bins)
-        neg_freq, neg_edges = self.calc_rel_freq(self.negative_lengths, bins)
-
-        plot_df = pd.DataFrame({
-            'bin_start': pos_edges[:-1],
-            'Positive': pos_freq,
-            'Negative': neg_freq
-        })
-
-        self.plot_df_filtered = plot_df[plot_df['bin_start'] <= self.max_seq_length]
-        self.plot_df_melted = pd.melt(
-            self.plot_df_filtered,
-            id_vars=['bin_start'],
-            var_name='Type',
-            value_name='Frequency'
-        )
-        print("Prepared plot data.")
-
-    def create_bar_plot(self):
-        """
-        Creates a bar plot comparing the relative frequencies of sequence lengths.
-        """
-        plt.figure(figsize=(15, 6))
-        sns.barplot(
-            data=self.plot_df_melted,
-            x='bin_start',
-            y='Frequency',
-            hue='Type',
-            palette=['blue', 'red']
-        )
-        plt.title(f'Relative Frequency of Sequence Lengths (Up to {self.max_seq_length})')
-        plt.xlabel('Sequence Length')
-        plt.ylabel('Relative Frequency')
-        plt.xticks(rotation=45)
-
-        total_frequencies = len(self.average_frequencies)
-        swissprot_frequencies = len(self.swissprot_frequencies)
-        plt.legend(
-            title='Type (Total Count)',
-            labels=[f'Average Fraquencies: ({total_frequencies})', f'Negative ({swissprot_frequencies})']
-        )
-
-        plt.tight_layout()
-        plt.show()
-        print("Bar plot generated.")
-
-    def create_density_plot(self):
-        """
-        Creates a density plot comparing the distributions of sequence lengths.
-        """
-        plt.figure(figsize=(15, 6))
-        sns.kdeplot(
-            data=self.positive_lengths[self.positive_lengths <= self.max_seq_length],
-            color='blue',
-            label='Positive',
-            linewidth=2
-        )
-        sns.kdeplot(
-            data=self.negative_lengths[self.negative_lengths <= self.max_seq_length],
-            color='red',
-            label='Negative',
-            linewidth=2
-        )
-        plt.title(f'Distribution of Sequence Lengths (Up to {self.max_seq_length})')
-        plt.xlabel('Sequence Length')
-        plt.ylabel('Density')
-        plt.xlim(0, self.max_seq_length)
-
-        total_positive = len(self.positive_lengths)
-        total_negative = len(self.negative_lengths)
-        plt.legend(
-            title='Type (Total Count)',
-            labels=[f'Positive ({total_positive})', f'Negative ({total_negative})']
-        )
-
-        plt.tight_layout()
-        plt.show()
-        print("Density plot generated.")
-
-    def create_box_plot(self):
-        """
-        Creates a box plot comparing the distribution of sequence lengths,
-        excluding outliers.
-        """
-        plt.figure(figsize=(15, 6))
-
-        def remove_outliers(data: pd.Series) -> pd.Series:
-            """
-            Removes outliers from the data using the IQR method.
-
-            :param data: Series containing numerical data.
-            :return: Series with outliers removed.
-            """
-            Q1 = np.percentile(data, 25)
-            Q3 = np.percentile(data, 75)
-            IQR = Q3 - Q1
-            lower_bound = Q1 - 1.5 * IQR
-            upper_bound = Q3 + 1.5 * IQR
-            return data[(data >= lower_bound) & (data <= upper_bound)]
-
-        # Remove outliers and filter by max_seq_length
-        positive_data = remove_outliers(
-            self.positive_lengths[self.positive_lengths <= self.max_seq_length]
-        )
-        negative_data = remove_outliers(
-            self.negative_lengths[self.negative_lengths <= self.max_seq_length]
-        )
-        data_to_plot = [positive_data, negative_data]
-
-        # Create box plot
-        box_plot = plt.boxplot(
-            data_to_plot,
-            patch_artist=True,
-            labels=['Positive', 'Negative']
-        )
-
-        # Customize colors
-        colors = ['blue', 'red']
-        for patch, color in zip(box_plot['boxes'], colors):
-            patch.set_facecolor(color)
-
-        plt.title(f'Distribution of Sequence Lengths (Outliers Removed)')
-        plt.xlabel('Sequence Type')
-        plt.ylabel('Sequence Length')
-
-        # Set y-axis limit based on data without outliers
-        plt.ylim(0, max(positive_data.max(), negative_data.max()) * 1.1)
-
-        # Add count information to the x-axis labels
-        total_positive = len(self.positive_lengths)
-        total_negative = len(self.negative_lengths)
-        plt.xticks(
-            range(1, 3),
-            [f'Positive\n(n={total_positive})', f'Negative\n(n={total_negative})']
-        )
-
-        plt.tight_layout()
-        plt.show()
-        print("Box plot generated.")
 
     def analyze(self):
         """
-        Performs the complete analysis by filtering data, preparing plot data,
-        generating plots, and printing statistics.
+        Performs the complete analysis with both training and benchmarking sets.
         """
-        self.filter_data()
-        self.prepare_plot_data()
-        self.create_bar_plot()
-        self.create_density_plot()
-        self.create_box_plot()
-        self.print_statistics()
+        # Create a DataFrame for plotting
+        plot_data = pd.DataFrame({
+            'Amino Acid': self.training_frequencies.index,
+            'Training Set': self.training_frequencies.values,
+            'Benchmark Set': self.benchmark_frequencies.values,
+            'SwissProt': self.swissprot_frequencies.values
+        })
+
+        # Create the plot
+        plt.figure(figsize=(15, 6))
+        
+        # Melt the DataFrame for plotting
+        plot_data_melted = pd.melt(
+            plot_data, 
+            id_vars=['Amino Acid'], 
+            var_name='Source', 
+            value_name='Frequency (%)'
+        )
+
+        # Create the bar plot
+        sns.barplot(
+            data=plot_data_melted,
+            x='Amino Acid',
+            y='Frequency (%)',
+            hue='Source',
+            palette=['steelblue', 'lightblue', 'coral']
+        )
+        
+        plt.title('Amino Acid Frequencies: Training vs Benchmark vs SwissProt')
+        plt.xlabel('Amino Acid')
+        plt.ylabel('Frequency (%)')
+        plt.xticks(rotation=0)
+        plt.legend(title='Source')
+        plt.tight_layout()
+        plt.show()
+
+        # Print statistics
+        print("\nAmino Acid Frequency Statistics:")
+        comparison_df = pd.DataFrame({
+            'Training (%)': self.training_frequencies.round(2),
+            'Benchmark (%)': self.benchmark_frequencies.round(2),
+            'SwissProt (%)': self.swissprot_frequencies.round(2),
+            'Training-SwissProt Diff (%)': (self.training_frequencies - self.swissprot_frequencies).round(2),
+            'Benchmark-SwissProt Diff (%)': (self.benchmark_frequencies - self.swissprot_frequencies).round(2),
+            'Training-Benchmark Diff (%)': (self.training_frequencies - self.benchmark_frequencies).round(2)
+        })
+        
+        # Sort by absolute maximum difference
+        max_diff = comparison_df[['Training-SwissProt Diff (%)', 'Benchmark-SwissProt Diff (%)', 'Training-Benchmark Diff (%)']].abs().max(axis=1)
+        comparison_df['Max Absolute Diff'] = max_diff
+        comparison_df_sorted = comparison_df.sort_values('Max Absolute Diff', ascending=False)
+        comparison_df_sorted = comparison_df_sorted.drop('Max Absolute Diff', axis=1)
+        
+        print(comparison_df_sorted)
+
+    def create_correlation_plot(self):
+        """
+        Creates a correlation plot between Training and Benchmark frequencies.
+        """
+        plt.figure(figsize=(8, 8))
+        plt.scatter(self.training_frequencies, self.benchmark_frequencies)
+        
+        # Add diagonal line
+        min_val = min(self.training_frequencies.min(), self.benchmark_frequencies.min())
+        max_val = max(self.training_frequencies.max(), self.benchmark_frequencies.max())
+        plt.plot([min_val, max_val], [min_val, max_val], 'r--')
+        
+        # Add labels for each point
+        for aa in self.training_frequencies.index:
+            plt.annotate(aa, 
+                        (self.training_frequencies[aa], self.benchmark_frequencies[aa]),
+                        xytext=(5, 5), textcoords='offset points')
+        
+        plt.xlabel('Training Set Frequency (%)')
+        plt.ylabel('Benchmark Set Frequency (%)')
+        plt.title('Correlation between Training and Benchmark Set Frequencies')
+        plt.tight_layout()
+        plt.show()
+        
+        # Calculate and print correlation coefficient
+        correlation = self.training_frequencies.corr(self.benchmark_frequencies)
+        print(f"\nPearson correlation coefficient between Training and Benchmark sets: {correlation:.3f}")
 
 class KingdomDistributionAnalyzer:
     def __init__(self, positive_tsv_file_path, negative_tsv_file_path):
@@ -1704,7 +1603,7 @@ class MainController:
     def handle_choice_f(self):
         """
         Handles Choice F: Plot Amino Acid Frequencies.
-        Analyzes and plots the average frequency of amino acids in the training set.
+        Analyzes and plots the average frequency of amino acids in both training and benchmarking sets.
         """
         # Define the list of standard amino acids
         amino_acids = list(IUPACData.protein_letters)
@@ -1713,18 +1612,50 @@ class MainController:
         split_tsv = f"{self.base_path_url}/split_pos.tsv"
         fasta_file = f"{self.base_path_url}/positives.fasta"
 
-        # Initialize the AminoAcidFrequencyAnalyzer
-        aa_frequency_analyzer = AminoAcidFrequencyAnalyzer(
+        # Initialize analyzers for both sets
+        aa_frequency_analyzer_T = AminoAcidFrequencyAnalyzer(
             split_tsv=split_tsv,
             fasta_file=fasta_file,
             amino_acids=amino_acids,
-            set_type='T',  # Analyzing the Training set
-            max_seq_length = 2000
+            set_type='T'
         )
-
-        # Perform the analysis and generate the plot
-        aa_frequency_analyzer.analyze()
-
+        
+        aa_frequency_analyzer_B = AminoAcidFrequencyAnalyzer(
+            split_tsv=split_tsv,
+            fasta_file=fasta_file,
+            amino_acids=amino_acids,
+            set_type='B'
+        )
+        
+        # Generate frequencies for both sets
+        aa_frequency_analyzer_T.generate_frequencies_dataframe()
+        aa_frequency_analyzer_B.generate_frequencies_dataframe()
+        
+        # Get the calculated average frequencies
+        training_frequencies = aa_frequency_analyzer_T.get_average_frequencies()
+        benchmark_frequencies = aa_frequency_analyzer_B.get_average_frequencies()
+        
+        # Create SwissProt frequencies series with same index
+        swissprot_frequencies = pd.Series({
+            "A": 8.25, "C": 1.38, "D": 5.46, "E": 6.71, "F": 3.86,
+            "G": 7.07, "H": 2.27, "I": 5.91, "K": 5.80, "L": 9.64,
+            "M": 2.41, "N": 4.06, "P": 4.74, "Q": 3.93, "R": 5.52,
+            "S": 6.65, "T": 5.36, "V": 6.85, "W": 1.10, "Y": 2.92
+        }).reindex(training_frequencies.index)
+        
+        # Create analyzer and generate plots
+        freq_analyzer = SwissProtFrequencyAnalyzer(
+            training_frequencies,
+            benchmark_frequencies,
+            swissprot_frequencies
+        )
+        
+        # Generate main comparison plot and statistics
+        freq_analyzer.analyze()
+        
+        # Generate correlation plot between training and benchmark sets
+        freq_analyzer.create_correlation_plot()
+    
     def handle_choice_g(self):
         
         #ADD ALSO NEGATIVE -> make a new set to plot this
