@@ -1262,50 +1262,134 @@ class SwissProtFrequencyAnalyzer:
         print(f"\nPearson correlation coefficient between Training and Benchmark sets: {correlation:.3f}")
 
 class KingdomDistributionAnalyzer:
-    def __init__(self, positive_tsv_file_path, negative_tsv_file_path):
-        self.positive_tsv_file_path = positive_tsv_file_path
-        self.negative_tsv_file_path = negative_tsv_file_path
+    def __init__(self, positive_tsv_path, negative_tsv_path):
+        self.positive_tsv_path = positive_tsv_path
+        self.negative_tsv_path = negative_tsv_path
         self.df = None
-        self.kingdom_counts = None
+        self.training_kingdom_counts = None
+        self.benchmarking_kingdom_counts = None
 
     def load_data(self):
-        """Load the TSV file into a pandas DataFrame."""
-        positive_df = pd.read_csv(self.positive_tsv_file_path, sep='\t')
-        negative_df = pd.read_csv(self.negative_tsv_file_path, sep='\t')
-
-        positive_negative_df = pd.concat([positive_df, negative_df], ignore_index=True)  # both positives and negatives
-
-        self.df = positive_negative_df         #MERGE DATAFRAMES
-        print(f"Data loaded. Shape: {self.df.shape}")
+        """Load and combine both positive and negative TSV files into a single DataFrame."""
+        positive_df = pd.read_csv(self.positive_tsv_path, sep='\t')
+        negative_df = pd.read_csv(self.negative_tsv_path, sep='\t')
+        
+        # Combine the datasets
+        self.df = pd.concat([positive_df, negative_df], ignore_index=True)
+        
+        print(f"Total data loaded. Shape: {self.df.shape}")
+        print(f"Training samples: {len(self.df[self.df['set'] == 'T'])}")
+        print(f"Benchmarking samples: {len(self.df[self.df['set'] == 'B'])}")
 
     def analyze_kingdom_distribution(self):
-        """Analyze the distribution of kingdoms."""
-        self.kingdom_counts = self.df['Kingdom'].value_counts()
-        print("Kingdom distribution:")
-        print(self.kingdom_counts)
+        """Analyze the distribution of kingdoms for both training and benchmarking sets."""
+        # Split data into training and benchmarking
+        training_data = self.df[self.df['set'] == 'T']
+        benchmarking_data = self.df[self.df['set'] == 'B']
+        
+        # Calculate kingdom distributions
+        self.training_kingdom_counts = training_data['Kingdom'].value_counts()
+        self.benchmarking_kingdom_counts = benchmarking_data['Kingdom'].value_counts()
+        
+        print("\nTraining set kingdom distribution:")
+        print(self.training_kingdom_counts)
+        print("\nBenchmarking set kingdom distribution:")
+        print(self.benchmarking_kingdom_counts)
 
-    def create_pie_chart(self, title="Distribution of Kingdoms", save_path=None):
-        """Create a pie chart of the kingdom distribution."""
-        if self.kingdom_counts is None:
+    def create_comparison_pie_charts(self, save_path=None):
+        """Create side-by-side pie charts comparing kingdom distributions."""
+        if self.training_kingdom_counts is None or self.benchmarking_kingdom_counts is None:
             print("Please run analyze_kingdom_distribution() first.")
             return
 
-        plt.figure(figsize=(10, 8))
-        plt.pie(self.kingdom_counts.values, labels=self.kingdom_counts.index, autopct='%1.1f%%', startangle=90)
-        plt.title(title)
-        plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
+
+        # Training set pie chart
+        ax1.pie(self.training_kingdom_counts.values, 
+                labels=self.training_kingdom_counts.index, 
+                autopct='%1.1f%%', 
+                startangle=90)
+        ax1.set_title('Training Set Kingdom Distribution')
+
+        # Benchmarking set pie chart
+        ax2.pie(self.benchmarking_kingdom_counts.values, 
+                labels=self.benchmarking_kingdom_counts.index, 
+                autopct='%1.1f%%', 
+                startangle=90)
+        ax2.set_title('Benchmarking Set Kingdom Distribution')
+
+        plt.axis('equal')
 
         if save_path:
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            print(f"Pie chart saved to {save_path}")
+            print(f"Comparison pie charts saved to {save_path}")
         
         plt.show()
 
-    def run_analysis(self, save_path=None):
+    def create_kingdom_bar_comparison(self, save_path=None):
+        """Create a bar chart comparing kingdom distributions between sets."""
+        if self.training_kingdom_counts is None or self.benchmarking_kingdom_counts is None:
+            print("Please run analyze_kingdom_distribution() first.")
+            return
+
+        # Get all unique kingdoms
+        all_kingdoms = sorted(set(list(self.training_kingdom_counts.index) + 
+                                list(self.benchmarking_kingdom_counts.index)))
+        
+        # Prepare data
+        training_data = [self.training_kingdom_counts.get(k, 0) for k in all_kingdoms]
+        benchmarking_data = [self.benchmarking_kingdom_counts.get(k, 0) for k in all_kingdoms]
+
+        # Set up the bar chart
+        x = range(len(all_kingdoms))
+        width = 0.35
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+        ax.bar([i - width/2 for i in x], training_data, width, label='Training Set')
+        ax.bar([i + width/2 for i in x], benchmarking_data, width, label='Benchmarking Set')
+
+        ax.set_ylabel('Count')
+        ax.set_title('Kingdom Distribution Comparison')
+        ax.set_xticks(x)
+        ax.set_xticklabels(all_kingdoms, rotation=45)
+        ax.legend()
+
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"Bar comparison chart saved to {save_path}")
+        
+        plt.show()
+
+    def print_distribution_statistics(self):
+        """Print detailed statistics about the kingdom distributions."""
+        if self.training_kingdom_counts is None or self.benchmarking_kingdom_counts is None:
+            print("Please run analyze_kingdom_distribution() first.")
+            return
+
+        print("\nDetailed Distribution Statistics:")
+        print("-" * 50)
+        
+        print("\nTraining Set:")
+        total_training = self.training_kingdom_counts.sum()
+        for kingdom, count in self.training_kingdom_counts.items():
+            percentage = (count/total_training) * 100
+            print(f"{kingdom}: {count} ({percentage:.1f}%)")
+            
+        print("\nBenchmarking Set:")
+        total_benchmarking = self.benchmarking_kingdom_counts.sum()
+        for kingdom, count in self.benchmarking_kingdom_counts.items():
+            percentage = (count/total_benchmarking) * 100
+            print(f"{kingdom}: {count} ({percentage:.1f}%)")
+
+    def run_analysis(self, pie_save_path=None, bar_save_path=None):
         """Run the complete analysis pipeline."""
         self.load_data()
         self.analyze_kingdom_distribution()
-        self.create_pie_chart(save_path=save_path)
+        self.create_comparison_pie_charts(save_path=pie_save_path)
+        self.create_kingdom_bar_comparison(save_path=bar_save_path)
+        self.print_distribution_statistics()
 
 class MakeSequenceLogo:
     def __init__(self, base_path_url, positive_tsv_file_path, fasta_file_path):
@@ -1663,16 +1747,13 @@ class MainController:
         
         # Generate correlation plot between training and benchmark sets
         freq_analyzer.create_correlation_plot()
-    
-    def handle_choice_g(self):
-        
-        #ADD ALSO NEGATIVE -> make a new set to plot this
 
+    def handle_choice_g(self):
         positive_tsv_file_path = f"{self.base_path_url}/split_pos.tsv"
         negative_tsv_file_path = f"{self.base_path_url}/split_neg.tsv"
-
+        
         analyzer = KingdomDistributionAnalyzer(positive_tsv_file_path, negative_tsv_file_path)
-        analyzer.run_analysis()
+        analyzer.run_analysis(pie_save_path='kingdom_pies.png', bar_save_path='kingdom_bars.png')
  
     def handle_choice_h(self):
         """
