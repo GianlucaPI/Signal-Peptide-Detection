@@ -839,13 +839,6 @@ class SignalPeptideLengthAnalyzer:
         self.create_box_plot()
         self.print_statistics()
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from collections import Counter
-from Bio import SeqIO
-
 class AminoAcidFrequencyAnalyzer:
     """
     Analyzes the frequency of amino acids in the training set.
