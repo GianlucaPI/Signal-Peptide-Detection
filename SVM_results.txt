@@ -1,0 +1,39 @@
+=== Classification Report ===
+              precision    recall  f1-score   support
+
+           0       0.92      0.90      0.91       275
+           1       0.88      0.90      0.89       218
+
+    accuracy                           0.90       493
+   macro avg       0.90      0.90      0.90       493
+weighted avg       0.90      0.90      0.90       493
+
+Accuracy: 0.90
+Matthews Correlation Coefficient (MCC): 0.80
+F1 Score: 0.90
+Precision: 0.90
+Recall: 0.90
+=== Confusion Matrix ===
+[[248  27]
+ [ 22 196]]
+
+=== Detailed Analysis ===
+
+=== Classification Statistics ===
+True Positives: 196 (39.76%)
+True Negatives: 248 (50.30%)
+False Positives: 27 (5.48%)
+False Negatives: 22 (4.46%)
+2024-11-15 15:25:15.784 Python[46911:546385] +[IMKClient subclass]: chose IMKClient_Modern
+2024-11-15 15:25:15.784 Python[46911:546385] +[IMKInputSession subclass]: chose IMKInputSession_Modern
+
+=== Additional Metrics ===
+Specificity (True Negative Rate): 0.9018
+Negative Predictive Value: 0.9185
+False Positive Rate: 0.0982
+
+=== Transmembrane Analysis ===
+FP_TM: 21
+Neg_TM: 168
+The fraction of negatives having the transmembrane misclassified: 0.1250
+The percentage of False Positives having the transmembrane domain: 0.7778

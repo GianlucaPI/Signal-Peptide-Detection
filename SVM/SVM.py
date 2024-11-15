@@ -637,73 +637,203 @@ def main():
     # === ANALYSIS === #
     print("\n=== Detailed Analysis ===")
     
-    # Identify False Positives and False Negatives
+    # Identify all classification categories
     FP_indices = np.where((y_benchmark_pred == 1) & (y_benchmark_true == 0))[0]
     FN_indices = np.where((y_benchmark_pred == 0) & (y_benchmark_true == 1))[0]
+    TN_indices = np.where((y_benchmark_pred == 0) & (y_benchmark_true == 0))[0]
+    TP_indices = np.where((y_benchmark_pred == 1) & (y_benchmark_true == 1))[0]
     
-    FP_list = benchmarking_df.loc[FP_indices, 'ID'].tolist()
-    FN_list = benchmarking_df.loc[FN_indices, 'ID'].tolist()
+    # Create lists of IDs for each category
+    FP_list = benchmarking_df.iloc[FP_indices]['ID'].tolist()
+    FN_list = benchmarking_df.iloc[FN_indices]['ID'].tolist()
+    TN_list = benchmarking_df.iloc[TN_indices]['ID'].tolist()
+    TP_list = benchmarking_df.iloc[TP_indices]['ID'].tolist()
     
+    # Create DataFrames for each category
     FP_df = benchmarking_df[benchmarking_df["ID"].isin(FP_list)]
     FN_df = benchmarking_df[benchmarking_df["ID"].isin(FN_list)]
+    TN_df = benchmarking_df[benchmarking_df["ID"].isin(TN_list)]
+    TP_df = benchmarking_df[benchmarking_df["ID"].isin(TP_list)]
     
-    # Plot Kingdom Distribution
+    # Print classification statistics
+    print("\n=== Classification Statistics ===")
+    total_samples = len(benchmarking_df)
+    print(f"True Positives: {len(TP_list)} ({len(TP_list)/total_samples*100:.2f}%)")
+    print(f"True Negatives: {len(TN_list)} ({len(TN_list)/total_samples*100:.2f}%)")
+    print(f"False Positives: {len(FP_list)} ({len(FP_list)/total_samples*100:.2f}%)")
+    print(f"False Negatives: {len(FN_list)} ({len(FN_list)/total_samples*100:.2f}%)")
+    
+    # Plot Kingdom Distribution for all categories
     plot_kingdom_distribution(benchmarking_df, 'Distribution of Kingdoms (Benchmark)')
+    plot_kingdom_distribution(TP_df, 'Distribution of Kingdoms (True Positives)')
+    plot_kingdom_distribution(TN_df, 'Distribution of Kingdoms (True Negatives)')
     plot_kingdom_distribution(FP_df, 'Distribution of Kingdoms (False Positives)')
     plot_kingdom_distribution(FN_df, 'Distribution of Kingdoms (False Negatives)')
     
-    # Compute False Positive Rate
-    negative_bench_df = benchmarking_df[benchmarking_df["Class"] == 0]
-    FPR = len(FP_list) / negative_bench_df.shape[0] if negative_bench_df.shape[0] > 0 else 0
+    # Calculate additional metrics
+    specificity = len(TN_list) / (len(TN_list) + len(FP_list)) if (len(TN_list) + len(FP_list)) > 0 else 0
+    npv = len(TN_list) / (len(TN_list) + len(FN_list)) if (len(TN_list) + len(FN_list)) > 0 else 0
+    FPR = len(FP_list) / (len(TN_list) + len(FP_list)) if (len(TN_list) + len(FP_list)) > 0 else 0
+    
+    print("\n=== Additional Metrics ===")
+    print(f"Specificity (True Negative Rate): {specificity:.4f}")
+    print(f"Negative Predictive Value: {npv:.4f}")
     print(f"False Positive Rate: {FPR:.4f}")
     
     # Compute Transmembrane Domain Misclassification
+    negative_bench_df = benchmarking_df[benchmarking_df["Class"] == 0]
     FP_TM = FP_df["Cleavage_pos"].sum()
     Neg_TM = negative_bench_df["Cleavage_pos"].sum()
     FPR_TM = FP_TM / Neg_TM if Neg_TM > 0 else 0
+    print(f"\n=== Transmembrane Analysis ===")
     print(f"FP_TM: {FP_TM}")
     print(f"Neg_TM: {Neg_TM}")
     print(f"The fraction of negatives having the transmembrane misclassified: {FPR_TM:.4f}")
     print(f"The percentage of False Positives having the transmembrane domain: {FP_TM / len(FP_list) if len(FP_list) > 0 else 0:.4f}")
     
-    # Identify True Positives
-    bench_pos_df = benchmarking_df[benchmarking_df["Class"] == 1].reset_index(drop=True)
-    TP_df = bench_pos_df[~bench_pos_df['ID'].isin(FN_df['ID'])]
-    
-    print(f"True Positives: {TP_df.shape}")
-    print(f"False Negatives: {FN_df.shape}")
-    print(f"Total Benchmark Positives: {bench_pos_df.shape}")
-    
-    # Amino Acid Composition Comparison
-    FN_seq = FN_df['First_40_AAs'].apply(lambda seq: seq[:22]).tolist()
+    # Amino Acid Composition Analysis
+    print("\n=== Amino Acid Composition Analysis ===")
     TP_seq = TP_df['First_40_AAs'].apply(lambda seq: seq[:22]).tolist()
+    TN_seq = TN_df['First_40_AAs'].apply(lambda seq: seq[:22]).tolist()
+    FP_seq = FP_df['First_40_AAs'].apply(lambda seq: seq[:22]).tolist()
+    FN_seq = FN_df['First_40_AAs'].apply(lambda seq: seq[:22]).tolist()
     train_pos_seq = training_df[training_df["Class"] == 1]['First_40_AAs'].apply(lambda seq: seq[:22]).tolist()
     
-    def calculate_aa_composition(sequence_list: list) -> dict:
-        """Calculate the amino acid composition for a list of sequences."""
+    def calculate_aa_composition(sequence_list):
         concatenated_seq = ''.join(sequence_list)
         analysis = ProteinAnalysis(concatenated_seq)
         return analysis.get_amino_acids_percent()
     
-    FN_composition = calculate_aa_composition(FN_seq)
     TP_composition = calculate_aa_composition(TP_seq)
+    TN_composition = calculate_aa_composition(TN_seq)
+    FP_composition = calculate_aa_composition(FP_seq)
+    FN_composition = calculate_aa_composition(FN_seq)
     train_composition = calculate_aa_composition(train_pos_seq)
     
-    plot_amino_acid_composition(FN_composition, TP_composition, train_composition)
+    def plot_extended_amino_acid_composition(TP_comp, TN_comp, FP_comp, FN_comp, train_comp):
+        def composition_to_df(composition, label):
+            return pd.DataFrame([
+                {'Amino Acid': aa, 'Percentage': composition.get(aa, 0), 'Set': label}
+                for aa in AMINO_ACIDS
+            ])
+        
+        dfs = [
+            composition_to_df(TP_comp, 'True Positive'),
+            composition_to_df(TN_comp, 'True Negative'),
+            composition_to_df(FP_comp, 'False Positive'),
+            composition_to_df(FN_comp, 'False Negative'),
+            composition_to_df(train_comp, 'Training Positive')
+        ]
+        
+        combined_df = pd.concat(dfs)
+        
+        plt.figure(figsize=(15, 6))
+        sns.barplot(data=combined_df, x='Amino Acid', y='Percentage', 
+                   hue='Set', palette='Set2')
+        plt.xlabel('Amino Acid')
+        plt.ylabel('Frequency')
+        plt.title('Amino Acid Composition of Sequences up to 22 Residues')
+        plt.xticks(rotation=45)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        plt.grid(True, alpha=0.3)
+        plt.show()
     
-    # Sequence Length Distribution
-    seq_len_FN = FN_df['Cleavage_pos'].tolist()
+    plot_extended_amino_acid_composition(
+        TP_composition, TN_composition, 
+        FP_composition, FN_composition, 
+        train_composition
+    )
+    
+    # Sequence Length Distribution Analysis
+    print("\n=== Sequence Length Analysis ===")
     seq_len_TP = TP_df['Cleavage_pos'].tolist()
+    seq_len_TN = TN_df['Cleavage_pos'].tolist()
+    seq_len_FP = FP_df['Cleavage_pos'].tolist()
+    seq_len_FN = FN_df['Cleavage_pos'].tolist()
     seq_len_train_pos = training_df[training_df["Class"] == 1]['Cleavage_pos'].tolist()
     
-    plot_length_distribution(seq_len_train_pos, seq_len_TP, seq_len_FN)
+    def plot_extended_length_distribution(train_lengths, tp_lengths, tn_lengths, 
+                                        fp_lengths, fn_lengths):
+        all_lengths = train_lengths + tp_lengths + tn_lengths + fp_lengths + fn_lengths
+        bins = np.linspace(min(all_lengths), max(all_lengths), 110)
+        bar_width = (bins[1] - bins[0]) / 6
+        
+        plt.figure(figsize=(12, 6))
+        plt.hist(train_lengths, bins=bins, density=True, alpha=0.5, 
+                label='Training Positive', color='blue', 
+                width=bar_width, align='mid', histtype='bar')
+        plt.hist(tp_lengths, bins=bins + bar_width, density=True, alpha=0.5, 
+                label='True Positive', color='green', 
+                width=bar_width, align='mid', histtype='bar')
+        plt.hist(tn_lengths, bins=bins + 2 * bar_width, density=True, alpha=0.5, 
+                label='True Negative', color='purple', 
+                width=bar_width, align='mid', histtype='bar')
+        plt.hist(fp_lengths, bins=bins + 3 * bar_width, density=True, alpha=0.5, 
+                label='False Positive', color='orange', 
+                width=bar_width, align='mid', histtype='bar')
+        plt.hist(fn_lengths, bins=bins + 4 * bar_width, density=True, alpha=0.5, 
+                label='False Negative', color='red', 
+                width=bar_width, align='mid', histtype='bar')
+        
+        plt.title('Distribution of Sequence Lengths')
+        plt.xlabel('Sequence Length')
+        plt.ylabel('Relative Density')
+        plt.xlim(0, 100)
+        plt.legend(loc='best')
+        plt.grid(True, alpha=0.3)
+        plt.show()
     
-    # Propensity Boxplots
+    plot_extended_length_distribution(
+        seq_len_train_pos, seq_len_TP, seq_len_TN, 
+        seq_len_FP, seq_len_FN
+    )
+    
+    # Propensity Analysis
+    print("\n=== Propensity Analysis ===")
     TP_features = extract_features(TP_df)
+    TN_features = extract_features(TN_df)
+    FP_features = extract_features(FP_df)
     FN_features = extract_features(FN_df)
     
-    plot_boxplot_propensity(FN_features, TP_features, 'helix')
-    plot_boxplot_propensity(FN_features, TP_features, 'transmembrane')
+    def plot_extended_boxplot_propensity(TP_features, TN_features, 
+                                       FP_features, FN_features, 
+                                       propensity_type):
+        if propensity_type.lower() == 'helix':
+            max_prop = 'Max_Helix_Propensity'
+            avg_prop = 'Avg_Helix_Propensity'
+        elif propensity_type.lower() == 'transmembrane':
+            max_prop = 'Max_Transmembrane_Propensity'
+            avg_prop = 'Avg_Transmembrane_Propensity'
+        else:
+            raise ValueError("propensity_type must be either 'helix' or 'transmembrane'")
+        
+        def create_propensity_df(features_df, group_name):
+            return pd.DataFrame({
+                'Propensity_Type': ['Max'] * len(features_df) + ['Avg'] * len(features_df),
+                'Propensity_Value': pd.concat([features_df[max_prop], features_df[avg_prop]]),
+                'Group': [group_name] * (2 * len(features_df))
+            })
+        
+        dfs = [
+            create_propensity_df(TP_features, 'True Positive'),
+            create_propensity_df(TN_features, 'True Negative'),
+            create_propensity_df(FP_features, 'False Positive'),
+            create_propensity_df(FN_features, 'False Negative')
+        ]
+        
+        combined_df = pd.concat(dfs)
+        
+        plt.figure(figsize=(10, 6))
+        sns.boxplot(x='Propensity_Type', y='Propensity_Value', 
+                   hue='Group', data=combined_df)
+        plt.title(f'Boxplot of {propensity_type.capitalize()} Propensities')
+        plt.show()
+    
+    plot_extended_boxplot_propensity(TP_features, TN_features, 
+                                   FP_features, FN_features, 'helix')
+    plot_extended_boxplot_propensity(TP_features, TN_features, 
+                                   FP_features, FN_features, 'transmembrane')
 
 if __name__ == "__main__":
     main()
