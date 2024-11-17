@@ -420,6 +420,112 @@ def plot_boxplot_propensity(FN_features: pd.DataFrame, TP_features: pd.DataFrame
     plt.title(f'Boxplot of {propensity_type.capitalize()} Propensities')
     plt.show()
 
+def cross_validate_svm(training_df, feature_combinations, n_folds=5):
+    # Parameter grid
+    param_grid = {
+        'C': [1, 2, 4, 8],
+        'gamma': [0.5, 1, 2, 'scale']
+    }
+    
+    results_list = []
+    
+    for idx, current_features in enumerate(feature_combinations, 1):
+        print(f"\n=== Evaluating Feature Combination {idx}/{len(feature_combinations)} ===")
+        
+        # Store results for each fold
+        fold_results = []
+        
+        for fold in range(n_folds):
+            print(f"  Fold {fold + 1}/{n_folds}")
+            
+            # Split data
+            test_set, validation_set, training_set, _, _, _ = split_data(training_df, fold, n_folds)
+            
+            # Extract and scale features
+            training_feature_df = extract_features(training_set)
+            validation_feature_df = extract_features(validation_set)
+            
+            X_train = training_feature_df[current_features]
+            y_train = training_feature_df['Class']
+            X_val = validation_feature_df[current_features]
+            y_val = validation_feature_df['Class']
+            
+            scaler = MinMaxScaler()
+            X_train_scaled = scaler.fit_transform(X_train)
+            X_val_scaled = scaler.transform(X_val)
+            
+            # Track best parameters for this fold
+            best_mcc = -1
+            best_params = None
+            best_metrics = None
+            
+            # Grid search
+            for c in param_grid['C']:
+                for g in param_grid['gamma']:
+                    svm = SVC(C=c, gamma=g, kernel='rbf')
+                    svm.fit(X_train_scaled, y_train)
+                    y_pred = svm.predict(X_val_scaled)
+                    
+                    # Calculate metrics
+                    mcc = matthews_corrcoef(y_val, y_pred)
+                    sen = recall_score(y_val, y_pred, zero_division=0)
+                    ppv = precision_score(y_val, y_pred, zero_division=0)
+                    acc = accuracy_score(y_val, y_pred)
+                    
+                    # Update best parameters if we found better MCC
+                    if mcc > best_mcc:
+                        best_mcc = mcc
+                        best_params = (c, g)
+                        best_metrics = {
+                            'mcc': mcc,
+                            'sen': sen,
+                            'ppv': ppv,
+                            'acc': acc
+                        }
+            
+            # Store best results for this fold
+            fold_results.append({
+                'fold': fold,
+                'C': best_params[0],
+                'gamma': best_params[1],
+                'metrics': best_metrics
+            })
+            
+            print(f"    Best parameters for fold {fold + 1}: C={best_params[0]}, gamma={best_params[1]}")
+            print(f"    Best metrics: MCC={best_metrics['mcc']:.4f}, SEN={best_metrics['sen']:.4f}, "
+                  f"PPV={best_metrics['ppv']:.4f}, ACC={best_metrics['acc']:.4f}")
+        
+        # Calculate average metrics across folds
+        avg_metrics = {
+            'mcc': np.mean([r['metrics']['mcc'] for r in fold_results]),
+            'sen': np.mean([r['metrics']['sen'] for r in fold_results]),
+            'ppv': np.mean([r['metrics']['ppv'] for r in fold_results]),
+            'acc': np.mean([r['metrics']['acc'] for r in fold_results])
+        }
+        
+        # Find most common parameters across folds
+        c_values = [r['C'] for r in fold_results]
+        g_values = [r['gamma'] for r in fold_results]
+        best_c = max(set(c_values), key=c_values.count)
+        best_g = max(set(g_values), key=g_values.count)
+        
+        results_list.append({
+            'Feature_Combination': current_features,
+            'Best_C': best_c,
+            'Best_Gamma': best_g,
+            'Average_MCC': avg_metrics['mcc'],
+            'Average_SEN': avg_metrics['sen'],
+            'Average_PPV': avg_metrics['ppv'],
+            'Average_ACC': avg_metrics['acc']
+        })
+        
+        print(f"\n  Most Common Parameters Across Folds:")
+        print(f"  C={best_c}, gamma={best_g}")
+        print(f"  Average Metrics: MCC={avg_metrics['mcc']:.4f}, SEN={avg_metrics['sen']:.4f}, "
+              f"PPV={avg_metrics['ppv']:.4f}, ACC={avg_metrics['acc']:.4f}\n")
+    
+    return pd.DataFrame(results_list)
+
 def main():
     # Paths to input files
     positive_fasta = "cluster-results_pos_rep_seq.fasta"
@@ -474,6 +580,7 @@ def main():
         ]
     ]
     
+    '''
     # Initialize a list to store results for each feature combination
     results_list = []
     
@@ -581,7 +688,26 @@ def main():
     # Save the results to a CSV file
     results_df.to_csv(os.path.join(BASE_PATH, "svm_feature_combinations_results.csv"), index=False)
     print("\nAll results have been saved to 'svm_feature_combinations_results.csv'")
+    '''
+
+    # Perform cross-validation and get results
+    results_df = cross_validate_svm(training_df, feature_combinations)
     
+    # Save the results
+    results_df.to_csv(os.path.join(BASE_PATH, "svm_feature_combinations_results.csv"), index=False)
+    print("\nAll results have been saved to 'svm_feature_combinations_results.csv'")
+    
+    # Identify the overall best feature combination based on Average MCC
+    overall_best = results_df.loc[results_df['Average_MCC'].idxmax()]
+    print("\n=== Overall Best Feature Combination ===")
+    print(f"Features Included: {overall_best['Feature_Combination']}")
+    print(f"Best C: {overall_best['Best_C']}")
+    print(f"Best Gamma: {overall_best['Best_Gamma']}")
+    print(f"Average MCC: {overall_best['Average_MCC']:.4f}")
+    print(f"Average SEN: {overall_best['Average_SEN']:.4f}")
+    print(f"Average PPV: {overall_best['Average_PPV']:.4f}")
+    print(f"Average ACC: {overall_best['Average_ACC']:.4f}")
+
     # === TRAIN THE FINAL MODEL ===
     print("\n=== Training the Final Model ===")
     
